@@ -1,5 +1,7 @@
-import 'dart:typed_data';
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'darwin/platform_ocr_darwin.dart';
 import 'windows/platform_ocr_windows.dart';
 
@@ -8,15 +10,41 @@ abstract class PlatformOcr {
     if (Platform.isMacOS || Platform.isIOS) {
       return DarwinPlatformOcr();
     }
+
     if (Platform.isWindows) {
       return WindowsPlatformOcr();
     }
+
     throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
   }
 
-  Future<OcrResult> recognizeText(OcrSource source);
+  Future<OcrResult> recognizeText(OcrSource source, {OcrOptions? options});
 
   void dispose();
+}
+
+class OcrOptions {
+  const OcrOptions({this.recognitionLanguages});
+
+  final List<OcrLanguage>? recognitionLanguages;
+}
+
+enum OcrLanguage {
+  english('en-US'),
+  simplifiedChinese('zh-Hans'),
+  traditionalChinese('zh-Hant'),
+  french('fr-FR'),
+  german('de-DE'),
+  italian('it-IT'),
+  japanese('ja-JP'),
+  korean('ko-KR'),
+  portuguese('pt-PT'),
+  russian('ru-RU'),
+  spanish('es-ES');
+
+  const OcrLanguage(this.code);
+
+  final String code;
 }
 
 class OcrResult {
@@ -31,25 +59,9 @@ class OcrResult {
 
 class OcrLine {
   final String text;
-  final Rect boundingBox;
+  final Rectangle boundingBox;
 
   OcrLine({required this.text, required this.boundingBox});
-}
-
-class Rect {
-  final double left;
-  final double top;
-  final double width;
-  final double height;
-
-  const Rect.fromLTWH(this.left, this.top, this.width, this.height);
-
-  double get right => left + width;
-  double get bottom => top + height;
-
-  @override
-  String toString() =>
-      'Rect.fromLTWH(${left.toStringAsFixed(2)}, ${top.toStringAsFixed(2)}, ${width.toStringAsFixed(2)}, ${height.toStringAsFixed(2)})';
 }
 
 abstract class OcrSource {

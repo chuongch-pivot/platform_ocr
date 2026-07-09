@@ -1,6 +1,7 @@
-import 'package:native_toolchain_c/native_toolchain_c.dart';
-import 'package:hooks/hooks.dart';
 import 'dart:io';
+
+import 'package:hooks/hooks.dart';
+import 'package:native_toolchain_c/native_toolchain_c.dart';
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
@@ -9,7 +10,7 @@ void main(List<String> args) async {
       name: packageName,
       assetName: (Platform.isMacOS || Platform.isIOS)
           ? 'src/darwin/bindings.g.dart'
-          : (Platform.isWindows)
+          : Platform.isWindows
               ? 'src/windows/bindings.g.dart'
               : null,
       sources: [
@@ -21,8 +22,7 @@ void main(List<String> args) async {
         if (Platform.isWindows) 'src/windows',
       ],
       frameworks: [
-        if (Platform.isMacOS || Platform.isIOS) 'Vision',
-        if (Platform.isMacOS || Platform.isIOS) 'Foundation',
+        if (Platform.isMacOS || Platform.isIOS) ...['Vision', 'Foundation'],
       ],
       libraries: [
         if (Platform.isWindows) 'windowsapp',

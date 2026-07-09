@@ -1,9 +1,13 @@
-import 'dart:ffi' as ffi;
-import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:ffi/ffi.dart';
 import 'package:image/image.dart' as img;
+
 import '../platform_ocr_interface.dart';
+
 import 'bindings.g.dart';
 
 class WindowsPlatformOcr implements PlatformOcr {
@@ -11,14 +15,13 @@ class WindowsPlatformOcr implements PlatformOcr {
 
   WindowsPlatformOcr() {
     _engine = CreateOcrEngine();
-    if (_engine == null || _engine!.address == 0) {
-      // Fallback or handle error
+    if (_engine == null || _engine?.address == 0) {
       print('Warning: Failed to create Windows OCR engine.');
     }
   }
 
   @override
-  Future<OcrResult> recognizeText(OcrSource source) async {
+  Future<OcrResult> recognizeText(OcrSource source, {OcrOptions? options}) async {
     final engine = _engine;
     if (engine == null || engine.address == 0) {
       throw Exception('Windows OCR engine not initialized.');
@@ -34,11 +37,16 @@ class WindowsPlatformOcr implements PlatformOcr {
     throw UnimplementedError('Unsupported source type');
   }
 
-  Future<OcrResult> _recognizeFromMemory(List<int> bytes) async {
-    final Uint8List uint8Bytes = Uint8List.fromList(bytes);
-    final image = img.decodeImage(uint8Bytes);
+  Future<OcrResult> _recognizeFromMemory(Uint8List bytes) async {
+    final image = img.decodeImage(bytes);
+
     if (image == null) {
       throw Exception('Failed to decode image.');
+    }
+
+    final engine = _engine;
+    if (engine == null || engine.address == 0) {
+      throw Exception('Windows OCR engine not initialized.');
     }
 
     final rgbaImage = image.numChannels == 4 && image.bitsPerChannel == 8
@@ -53,23 +61,24 @@ class WindowsPlatformOcr implements PlatformOcr {
       final ptr = arena.allocate<ffi.Uint8>(rgbaBytes.length);
       ptr.asTypedList(rgbaBytes.length).setAll(0, rgbaBytes);
 
-      final resultPtr = RecognizeTextFromMemory(_engine!, ptr, width, height);
+      final resultPtr = RecognizeTextFromMemory(engine, ptr, width, height);
       if (resultPtr.address == 0) return OcrResult(text: '', lines: []);
 
       try {
         final jsonStr = resultPtr.cast<Utf16>().toDartString();
-        final Map<String, dynamic> data = jsonDecode(jsonStr);
+        final data = jsonDecode(jsonStr);
 
-        final String fullText = data['text'] ?? '';
+        final fullText = data['text'] ?? '';
         final List<dynamic> linesData = data['lines'] ?? [];
 
         final lines = linesData.map((l) {
-          final box = Rect.fromLTWH(
+          final box = Rectangle(
             (l['x'] as num).toDouble(),
             (l['y'] as num).toDouble(),
             (l['width'] as num).toDouble(),
             (l['height'] as num).toDouble(),
           );
+
           return OcrLine(text: l['text'] ?? '', boundingBox: box);
         }).toList();
 
